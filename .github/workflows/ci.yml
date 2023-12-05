@@ -1,0 +1,70 @@
+name: Buddha Bowl CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '20' # Using an LTS version for stability
+
+    - name: Cache Node.js modules
+      uses: actions/cache@v2
+      with:
+        path: ~/.npm
+        key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-node-
+
+    - name: Install Dependencies
+      run: npm install
+
+    - name: Run Tests
+      run: npm run test
+
+    - name: Build Vue 3 App
+      run: npm run build
+
+    - name: Build Storybook
+      run: npm run build-storybook
+
+    # # Optional: Deploy Storybook to a hosting service
+    # - name: Deploy Storybook
+    #   if: github.ref == 'refs/heads/main'
+    #   run: npm run deploy-storybook
+    #   # Ensure you have a script 'deploy-storybook' in package.json for deployment
+
+    # - name: Setup Strapi Environment
+    #   run: cp config/environments/development/database.json config/environments/test/database.json
+    #   # Adjust the above command based on your Strapi configuration and environment setup
+
+    # - name: Run Strapi Migrations
+    #   run: npm run strapi-migrate
+    #   # This assumes you have a script for handling Strapi migrations
+
+    # - name: Seed Strapi Database
+    #   run: npm run strapi-seed
+    #   # This assumes you have a script for seeding your Strapi database
+
+    - name: Copy Build to Public Directory
+      run: mkdir -p public && rm -rf public/* && cp -r dist/* public/
+
+    - name: Deploy to Firebase Hosting
+      if: github.ref == 'refs/heads/main'
+      uses: FirebaseExtended/action-hosting-deploy@v0
+      with:
+        repoToken: "${{ secrets.GITHUB_TOKEN }}"
+        firebaseServiceAccount: "${{ secrets.FIREBASE_SERVICE_ACCOUNT }}"
+        channelId: live # or your specific channel ID if deploying to a preview channel
+        projectId: buddha-bowl-3acfc
+
